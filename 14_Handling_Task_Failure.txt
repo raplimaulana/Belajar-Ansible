@@ -1,0 +1,248 @@
+### HANDLING TASK FAILURE ###
+
+There are a number of Ansible features that can be used to manage task errors:
+1. Ignoring task failure.
+   If you want to continue on even the task is fails, You can use the ignore_errors keyword in a task to accomplish this.
+
+   - name: task that will errors
+     command: /bin/false
+     ignore_errors: yes
+
+2. Forcing execution of handlers after task failure.
+   If you set the force_handlers: yes keyword on the playbook, then notified handlers are called even if the play aborted because a later task failed.
+
+   - host: all
+     force_handlers: yes
+     tasks:
+       - name: a task wich always notifies its handler
+         command: /bin/true
+         notify: restart service
+
+       - name: a task which fails
+         apt: 
+           name: fakePkg
+           state: latest
+     
+     handlers:
+       - name: restart service
+         service: 
+           name: apache2
+           state: restarted
+
+3. Specifying task failure conditions.
+   You can use the failed_when keyword on a task to specify which conditions indicate that the task has failed. 
+   This is often used with command modules that may successfully execute a command, but the command's output indicates a failure.   
+
+   tasks: 
+     - name: check file
+       shell: ls /home/student/ | wc -l 
+       register: output
+
+     - debug:
+       var: output
+       failed_when: output.stdout == "6"
+    
+4. Specifying task "changed" results.
+   The changed_when keyword can be used to control when a task reports that it has changed.  
+
+   tasks: 
+     - name: create file
+       file:
+         path: /home/student/file.txt
+         state: touch
+       changed_when: false
+    
+    *changed_when: false is set so that it only reports ok or failed
+
+5. Ansible blocks and error handling.
+   In playbooks, blocks are clauses that logically group tasks, and can be used to control how tasks are executed.
+
+   tasks: 
+     - name: updating on ubuntu
+       block: 
+         - name: update cache apt
+           apt: 
+             update_cache: yes
+        when: ansible_distribution == "Ubuntu"
+
+   Blocks also allow for error handling in combination with the rescue and always statements. To summarize:
+   •  block : Defines the main tasks to run.
+   •  rescue: Defines the tasks to run if the tasks defined in the block clause fail.
+   •  always: Defines the tasks that will always run independently of the success or failure of tasks defined in the block and rescue clauses.
+
+   tasks:
+     - name: Handle the error with block
+       block:
+         - debug:
+             msg: 'execute normally on block'
+         - name: a task failure
+           command: /bin/false
+       rescue:
+         - debug:
+             msg: 'rescue task will execute because the task on block is failure'
+        always: 
+          - debug: 
+             msg: 'this task will always execute'
+
+6. Aborting the play
+   The any_errors_fatal play option will mark all hosts as failed if any fails, causing an immediate abort:
+   
+   - hosts: somehosts
+     any_errors_fatal: true
+     roles: 
+       - myrole
+   
+   *for finer-grained control max_fail_percentage can be used to abort the run after a given percentage of hosts has failed
+
+
+
+
+
+### EXAMPLE HANDLING TASK FAILURE ###
+
+##create ansible.cfg
+cd managing-task-failure
+vim ansible.cfg
+
+[defaults]
+inventory = ./inventory
+remote_user = student
+
+[privilege_escalation]
+become = True
+become_ask_pass = false
+
+##create inventory file
+vim inventory
+
+[managed]
+pod-raplima-managed1
+
+##create the task-failure.yml playbook, which contains a play with two tasks
+1.  Define three variables: web_pkg with a value of apache, db_pkg with a value of mariadb-server, and db_svc with a value of mariadb.
+2.	Define two tasks that use the apt module and the two variables, web_pkg and db_pkg.
+
+vim task-failure.yml
+
+---
+- name: Lab Task failure
+  host: managed
+  vars:
+    - web_pkg: apache
+    - db_pkg: mariadb-server
+    - db_svc: mariadb
+  
+  tasks: 
+    - name: Install {{web_pkg}} package
+      apt:
+        name: "{{web_pkg}}
+        state: present
+    
+    - name: Install {{db_pkg}} package
+      apt:
+        name: Install {{db_pkg}} package
+        state: present
+
+#run the playbook
+ansible-playbook task-failure.yml
+
+*The task failed because there is no existing package called apache. Because the first task failed, the second task was not run.
+
+#!update the first task to ignore any errors by adding the ignore_errors keyword
+tasks: 
+  - name: Install {{web_pkg}} package
+    apt:
+      name: ""{{web_pkg}}
+      state: present
+    ignore_errors: yes
+
+#run the playbook again
+ansible-playbook task-failure.yml
+
+*despite the fact that the first task failed, Ansible executed the second one
+
+#!change playbook to use block keyword
+tasks: 
+  - name: Set up webserver
+    block: 
+      - name: Install {{web_pkg}} package
+        apt: 
+          name: {{web_pkg}}
+          state: present
+    rescue:
+      - name: Install {{db_pkg}} package
+        apt:
+          name: {{db_pkg}}
+          state: present
+    always: 
+      - name: Start db_svc service
+        service:
+          name: db_pkg
+          state: started
+
+#run the playbook again
+ansible-playbook task-failure.yml
+
+#!edit the playbook, correcting the value of the web_pkg variable to read apache2
+vars: 
+  web_pkg: apache2
+  db_pkg: mariadb-server
+  db-svc: mariadb
+
+#run the playbook again
+ansible-playbook task-failure.yml  
+
+
+##this step explores how to control the condition that causes a task to be reported as "changed" to the managed host
+#!edit the playbook to add two tasks to the start of the play, preceding the block
+tasks: 
+  - name: execute command
+    command: hostnamectl
+    register: Result
+  
+  - name: print command
+    debug:
+      var: Result.stdout_lines
+
+#run the playbook 
+ansible-playbook task-failure.yml 
+
+#!add the line changed_when: false to the task to suppress the change
+tasks:
+  - name: execute command
+    command: hostnamectl
+    register: Result
+    changed_when: false
+  
+  - name: print command
+    debug: 
+      var: Result.stdout_lines
+
+#run the playbook again
+ansible-playbook task-failure.yml 
+
+#edit the playbook to show how the failed_when keyword interacts with tasks
+- name: Set up webserver
+  block:
+    - name: Install {{web_pkg}} package
+      apt: 
+        name: {{web_pkg}}
+        state: present
+      failed_when: web_pkg == "apache2"
+
+#run the playbook again
+ansible-playbook task-failure.yml 
+
+*The Install apache2 package task reports that it failed, but it actually ran and made sure the package is installed first. 
+ The failed_when keyword changes the status the task reports after the task runs; it does not change the behavior of the task itself.
+
+*However, the reported failure might change the behavior of the rest of the play. 
+ Because that task was in a block and reported that it failed, the Install mariadb- server package task in the block's rescue section was run.
+
+
+
+
+
+
+
+

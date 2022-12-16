@@ -1,0 +1,384 @@
+### ANSIBLE ###
+Ansible is an IT automation tool. 
+It can configure systems, deploy software, and orchestrate more advanced IT tasks such as continuous deployments or zero downtime rolling updates.
+
+Ansible doesn't depend on agent software so it's easy to deploy. 
+Ansible allows you to configure not just one computer, but potentially a whole network of computers at once, and using it requires no programming skills. 
+
+How ansible works?
+
+Ansible works by connecting to nodes (clients, servers, or whatever you're configuring) on a network, and then sending a small program called an Ansible module to that node. 
+Ansible executes these modules over SSH and removes them when finished. 
+The only requirement for this interaction is that your Ansible control node has login access to the managed nodes.
+
+Here are some definitions and concepts of ansible:
+•	  Control node 
+    The machine from which we run the Ansible CLI tools (ansible-playbook , ansible, ansible-vault and others).  
+    Node dimana Ansible di install.
+
+•	  Managed nodes 
+    Also referred to as ‘hosts’, these are the target devices (servers, network appliances or any computer) you aim to manage with Ansible. 
+    Semua infrastruktur yang dikontrol oleh Control Node.
+
+•	  Inventory 
+    Daftar dari Managed Node.
+
+•	  Plugins 
+    Pieces of code that expand Ansible’s core capabilities, they can control how you connect to a managed node (connection plugins), manipulate data (filter plugins) and even control what is displayed in the console (callback plugins).  
+
+•	  Collections 
+    A format in which Ansible content is distributed that can contain playbooks, roles, modules, and plugins. You can install and use collections through Ansible Galaxy. Collection resources can be used independently and discretely from each other. 
+
+•	  AAP 
+    Short for ‘Ansible Automation Platform’. This is a product that includes enterprise level features and integrates many tools of the Ansible ecosystem: ansible-core, awx, galaxyNG, and so on.
+
+
+###FUNDAMENTALS OF ANSIBLE ###
+1. Inventory         
+   Inventory contains a list of managed nodes. An inventory file is also sometimes called a “hostfile”. 
+   Your inventory can specify information like IP address for each managed node.
+
+   The default location for inventory is a file called /etc/ansible/hosts. 
+   You can specify a different inventory file at the command line using the -i option. 
+   Below is inventory with two format ini file and yaml. 
+
+   •  INI format
+      vim hosts
+                          
+      mail.example.com
+                          
+      [webservers]
+      foo.example.com
+      bar.example.com 
+                         
+      [dbservers]
+      one.example.com
+      two.example.com
+      three.example.com 
+                      
+   •	YAML format 
+      vim hosts
+      all:
+        hosts:
+          mail.example.com
+        children: 
+          webservers:
+            hosts: 
+              foo.example.com
+              bar.example.com 
+            dbservers:
+              one.example.com
+              two.example.com
+              three.example.com
+
+      *There are two default groups: all and ungrouped. 
+       All group contains every host, The ungrouped group contains all hosts that don’t have another group aside from all.
+
+2. Ad-hoc command
+   Ad-Hoc command is the one-liner ansible command that performs one task on the target host (one or more managed nodes). 
+   Ad hoc commands are quick and easy, but they are not reusable. 
+   Ad-hoc commands are great for tasks you repeat rarely
+
+   ansible [pattern] -m [module] -a "[module options]"
+
+   •	Rebooting servers.
+      ansible atlanta -a "/sbin/reboot" -f 10
+
+   •	Managing files.
+      ansible atlanta -m ansible.builtin.copy -a "src=/etc/hosts dest=/tmp/hosts"
+      ansible webservers -m ansible.builtin.file -a "dest=/srv/foo/b.txt mode=600 owner=mdehaan group=mdehaan"
+  
+   •	Managing packages
+      ansible webservers -m ansible.builtin.yum -a "name=acme state=present"
+
+   •	Managing users and groups
+      ansible all -m ansible.builtin.user -a "name=foo password=641facd12"
+     
+   •	Managing services
+      ansible webservers -m ansible.builtin.service -a "name=httpd state=started"
+      ansible webservers -m ansible.builtin.service -a "name=httpd state=restarted"
+      ansible webservers -m ansible.builtin.service -a "name=httpd state=stopped"
+
+   •	Gathering facts
+      ansible all ansible.builtin.setup
+
+3. Playbook.
+   Ansible Playbooks offer a repeatable, re-usable, simple configuration management and multi-machine deployment system, one that is well suited to deploying complex applications.
+   Playbooks can declare configurations, orchestrate steps of any manual ordered process, on multiple sets of machines, in a defined order, and launch tasks synchronously or asynchronously.
+
+   At a minimum, a playbook defines two things:
+   •	The managed nodes to target, using a pattern.
+   •	At least one task to execute.
+
+   vim playbook.yml
+
+   ---
+   - name: update web servers
+     hosts: webservers                                   #dieksekusi di host yang tergabung pada group docker
+     remote_user: root
+
+     tasks:
+       - name: ensure apache is at the latest version
+         yum: 
+           name: httpd
+           state: latest
+       - name: write the apache config file
+         template:
+           src: /srv/httpd.j2
+           dest: /etc/httpd.conf
+   
+   - name: update db servers
+     hosts: databases
+     remote_user: root
+
+     tasks:
+       - name: ensure postgresql is at the latest version
+         yum:
+           name: postgresql
+           state: latest  
+       - name: ensure that postgresql is started
+         service:
+           name: postgresql
+           service: started
+   
+
+   ansible-playbook playbook.yml
+
+4. Tasks 
+   The units of action in Ansible. You can execute a single task once with an ad-hoc command.
+   
+   •	Example tasks with ad-hoc command.
+      ansible atlanta -m ansible.builtin.copy -a "src=/etc/hosts dest=/tmp/hosts"
+
+   •	Example tasks in playbook.
+      tasks:
+        - name: ensure the apache is at the latest version
+          yum: 
+            name: apache2
+            state: latest
+        - name: write the apache config file
+          template:
+            src: /srv/httpd.j2
+            dest: /srv/httpd.conf
+
+5. Roles
+   Roles let you automatically load related vars_files, tasks, handlers, and other Ansible artifacts based on a known file structure. 
+   Once you group your content in roles, you can easily reuse them and share them with other users.
+
+   An Ansible role has a defined directory structure with seven main standard directories. 
+   You must include at least one of these directories in each role. You can omit any directories the role does not use. 
+
+   vim x
+
+   site.yml
+   webservers.yml
+   fooservers.yml
+   roles/
+     common/
+       tasks/
+       handlers/
+       library/
+       files/
+       templates/
+       vars/
+       defaults/
+       meta/
+     webservers/
+       tasks/
+       defaults/
+       meta/
+    
+    *tasks/main.yml       = The main list of tasks that the role executes.
+     handlers/main.yml    = Handlers, which may be used within or outside this role.
+     library/my_module.py = Modules, which may be used within this role (see Embedding modules and plugins in roles for more information).
+     defaults/main.yml    = Default variables for the role (see Using Variables for more information). 
+                            These variables have the lowest priority of any variables available, and can be easily overridden by any other variable, including inventory variables.
+     vars/main.yml        = Other variables for the role (see Using Variables for more information).
+     files/main.yml       = Files that the role deploys.
+     templates/main.yml   = Templates that the role deploys.
+     meta/main.yml        = Metadata for the role, including role dependencies.
+
+6. Modules
+   Modules (also referred to as “task plugins” or “library plugins”) are discrete units of code that can be used from the command line or in a playbook task.
+   ansible [pattern] -m [module] -a "[module options]"
+
+   ansible workservers -m service -a "name=httpd state=restart"
+   ansible workservers -m ping 
+   ansible workservers -m command -a "/sbin/reboot -t now"
+
+   *Each module supports taking arguments. Nearly all modules take key=value arguments, space delimited. 
+    Some modules take no arguments, and the command/shell modules simply take the string of the command you want to run.
+   
+   *For a list of all available modules
+    ansible-doc -l
+   
+   *Accessing the documentation for each module
+    ansible-doc service
+
+7. Variables
+   Ansible uses variables to manage differences between systems. 
+   To represent the variations among those different systems, you can create variables with standard YAML syntax, including lists and dictionaries. 
+   You can define these variables in your playbooks, in your inventory, in re-usable files or roles, or at the command line. 
+   You can also create variables during a playbook run by registering the return value or values of a task as a new variable.
+
+   After you create variables, either by defining them in a file, passing them at the command line, or registering the return value or values of a task as a new variable, you can use those variables in module arguments, in conditional “when” statements, in templates, and in loops.
+
+   •	Valid Variable:
+      - foo
+      - foo_env
+      - foo_port
+      - foo5, _foo
+   
+   •	Invalid Variable:
+      - *foo, Python keywords such as async and lambda
+      - playbook keywords such as environment
+      - foo-port, foo port, foo.port
+      - 5foo, 12
+   
+   vim playbook.yml
+
+   ---
+   - hosts: all
+     remote_user: root
+     vars: 
+       favcolor: blue
+     vars_files:
+       - /vars/external_vars.yml
+     
+     tasks:
+       - name: this is just a placeholder
+         ansible.builtin.command: /bin/echo foo
+
+8. Variable precedence.
+   Ansible does apply variable precedence, and you might have a use for it. 
+   Here is the order of precedence from least to greatest (the last listed variables override all other variables):
+   - Command line values (for example, -u my_user, these are not variables)
+   - Role defaults (defined in role/defaults/main.yml)
+   - Inventory file or script group vars
+   - Inventory group_vars/all
+   - Playbook group_vars/all
+   - Inventory group_vars/*
+   - Playbook group_vars/*
+   - Inventory file or script host vars
+   - Inventory host_vars/*
+   - Playbook host_vars/*
+   - Host facts / cached set_facts
+   - Play vars
+   - Play vars_prompt
+   - Play vars_files
+   - Role vars (defined in role/vars/main.yml)
+   - Block vars (only for tasks in block)
+   - Task vars (only for the task)
+   - Include_vars
+   - Set_facts / registered vars
+   - Role (and include_role) params
+   - Include params
+   - Extra vars (for example, -e "user=my_user")(always win precedence)
+
+9. Loop.
+   Sometimes we want to repeat a task multiple times. In computer programming, this is called a loop. 
+   Common Ansible loops include changing ownership on several files and/or directories with the file module, creating multiple users with the user module, and repeating a polling step until a certain result is reached. 
+   Ansible offers two keywords for creating loops: loop and with_.
+
+   •	Simple iterative.
+      - name: add several users
+        ansible.builtin.user:
+          name: "{{item}}"
+          state: present
+          groups: "wheel"
+        loop:
+          - testuser1
+          - testuser2
+
+   •	Iterative with list of hashes.
+      - name: add several users
+        ansible.builtin.user:
+          name: "{{item.name}}"
+          state: present
+          groups: "{{item.groups}}"
+        loop: 
+          - {name: 'testuser1', groups: 'wheel1'}
+          - {name: 'testuser2', groups: 'root'}
+      
+10. Conditionals
+    In a playbook, you may want to execute different tasks, or have different goals, depending on the value of a fact (data about the remote system), a variable, or the result of a previous task. 
+    You may want the value of some variables to depend on the value of other variables. Or you may want to create additional groups of hosts based on whether the hosts match other criteria. You can do all of these things with conditionals.
+
+    •   Basic example conditional.
+        tasks: 
+          - name: configure SELinux to start mysql on any port
+            ansible.posix.seboolean:
+              name: mysql_connect_any
+              state: true
+              persistent: yes
+            when: ansible selinux.status == "enabled"
+
+    •   Conditional based on facts.
+        tasks: 
+          - name: shut down Debian flavored systems
+            ansible.builtin.command: /sbin/shutdown -t now
+            when: ansible_facts['os_family'] == "Debian" 
+
+11. Privilege escalation.
+    Ansible uses existing privilege escalation systems to execute tasks with root privileges or with another user’s permissions. 
+    Because this feature allows you to ‘become’ another user, different from the user that logged into the machine (remote user), we call it become. 
+    The become keyword leverages existing privilege escalation tools like sudo, su, pfexec, doas, pbrun, dzdo, ksu, runas, machinectl and others.   
+
+    - name: run a command as root
+      command: apt update
+      #become: yes
+      become: true                                              ##agar bisa mengeksekusi command yang membutuhkan perintah sudo
+      become_user: root
+
+12. Secrects.
+    Ansible Vault encrypts variables and files so you can protect sensitive content such as passwords or keys rather than leaving it visible as plaintext in playbooks or roles. 
+    To use Ansible Vault you need one or more passwords to encrypt and decrypt content.
+
+    •   Encrypt data.
+        ansible-vault encrypt foo.yml bar.yml baz.yml
+
+    •	  View secret.
+        ansible-vault view foo.yml bar.yml baz.yml
+
+    •	  Editing secret.
+        ansible-vault edit foo.yml
+
+    •	  Decrypt data.
+        ansible-vault decrypt foo.yml bar.yml baz.yml
+
+13. Jinja 2 template.
+    Ansible uses Jinja2 templating to enable dynamic expressions and access to variables. 
+    Ansible includes a lot of specialized filters and tests for templating. You can use all the standard filters and tests included in Jinja2 as well.
+
+    A Jinja2 template file is a text file that contains variables that get evaluated and replaced by actual values upon runtime or code execution. 
+    In a Jinja2 template file, you will find the following tags:
+    •	  {{ }}     = These double curly braces are the widely used tags in a template file and they are used for embedding variables and ultimately printing their value during code execution. 
+                    For example, a simple syntax using the double curly braces is as shown: The {{ webserver }} is running on {{ nginx-version }}
+    •	  {% %}     = These are mostly used for control statements such as loops and if-else statements.
+    •	  {# #}     = These denote comments that describe a task.
+    •	  Playbook  
+        - hosts: appservers
+          vars: 
+            username: user88
+            version_number: 2.4
+            hostname: myserver
+          tasks:
+            - name: jinja2 template
+              template: src=index.html.j2 dest=/var/www/html/index.html
+    •	  Jinja 2 files
+        Hi {{ username | upper }}!
+        This come from apache2 webserver with version {{ version_number }} is running on {{ hostname }}
+  
+
+      
+                  
+
+
+
+    
+        
+
+
+
+         
+

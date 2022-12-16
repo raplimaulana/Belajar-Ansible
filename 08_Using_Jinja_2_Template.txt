@@ -1,0 +1,45 @@
+### USING JINJA 2 TEMPLATE ###
+
+##create inventory
+mkdir jinja2-template
+cd jinja2-template
+vim inventory
+
+[webservers]
+pod-raplima-managed1
+
+##create playbook
+vim site.yml
+
+- name: Install and start apache2
+  hosts: webservers
+  become: true
+  tasks: 
+    - name: apache2 package is present
+      apt: 
+        name: apache2
+        updatce_cache: yes
+        force_apt_get: yes
+        state:present: state present
+    - name: restart apache2 service
+      service:
+        name: apache2
+        state: restarted
+        enabled: yes
+    - name: copy index.html
+      templates:
+        src: raplima.html.j2
+        dest: /var/www/html/raplima.html
+
+##create Jinja 2 template
+vim raplima.html.j2
+
+Hello World!
+This is Rapli Maulana Aji site.
+
+##run playbook
+ansible-playbook -i inventory site.yml
+
+*verify:
+ curl pod-raplima-managed1/raplima.html
+

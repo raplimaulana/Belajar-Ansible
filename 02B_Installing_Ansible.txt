@@ -1,0 +1,108 @@
+### ANSIBLE ###
+Ansible digunakan untuk melakukan perintah yang sama pada beberapa server sekaligus. 
+Contohnya untuk merubah konfigurasi DNS, sysadmin tidak perlu melakukan konfigurasi manual satu-satu setiap server, sebagai gantinya hanya melakukan sekali perintah di Ansible Control Node.
+
+kenapa ansible?
+Berifat agentless (tidak perlu melakukan instalasi tambahan dan konfigurasi untuk menghubungkan semua node).
+
+Istilah-Istilah Ansible
+1. Control Node
+   Node dimana Ansible di install.
+
+2. Managed Node
+   Semua infrastruktur yang dikontrol oleh Control Node.
+
+3. Inventory 
+   Daftar dari Managed Node
+
+4. Playbook
+   Daftar command atau perintah dalam bentuk format YAML
+
+##installasi Ansible
+1. Download dan install Ansible di control node.
+   sudo apt install ansible 
+
+2. Copy default foldernya Ansible ke Home.
+   cp -rf /etc/ansible raplimaulana
+
+3. Edit file ansible.cfg.
+   vim ansible.cfg 
+
+   inventory = hosts
+   hosts_key_checking = False
+
+4. Daftarkan managed node di Inventory
+   vim hosts
+
+   #konfigurasi perintah yang berbeda setiap hostnya
+   all:
+     hosts:
+       mail.example.com:                              #host dalam bentuk nameserver
+       192.168.45.46:                                 #host dalam bentuk IP address
+     children:
+       webserver:
+         hosts: 
+           web01:
+           192.168.45.50:
+       docker:
+         hosts:
+           docker01:
+             ansible_user: docker
+             ansible_password:pasword01              #passwordnya beda-beda setiap node
+           192.168.45.55:
+             ansible_user: docker
+             ansible_password:pasword02
+
+   
+   #konfigurasi perintah yang sama pada semua host mengunakan vars
+   all:
+     hosts:
+       mail.example.com:                              #host dalam bentuk nameserver
+       192.168.45.46:                                 #host dalam bentuk IP address
+     children:
+       webserver:
+         hosts: 
+           web01:
+           192.168.45.50:
+       docker:
+         hosts:
+           docker01:         
+           192.168.45.55:
+         vars:                                       #mendeklarasikan global variabel, semua perintah dibawahnya akan di eksekusi di semua node yang ada di group docker
+           ansible_user: docker
+           ansible_password:pasword
+   
+   
+   #konfigurasi tanpa parent node, tapi memiliki 2 group node
+   all:
+     children:
+       webserver:
+         hosts: 
+           web01:
+           192.168.45.50:
+       docker:
+         hosts:
+           docker01:         
+           192.168.45.55:
+         vars:                                       #mendeklarasikan global variabel, semua perintah dibawahnya akan di eksekusi di semua node yang ada di group docker
+           ansible_user: docker
+           ansible_password:pasword
+
+    
+    #konfigurasi sederhana satu group node saja
+    docker:
+      hosts:
+        docker01:         
+          192.168.45.55:
+        vars:                                       #mendeklarasikan global variabel, semua perintah dibawahnya akan di eksekusi di semua node yang ada di group docker
+          ansible_user: docker
+          ansible_password:pasword
+           
+5. Install sshpass
+   sudo apt install sshpass
+
+
+
+
+
+

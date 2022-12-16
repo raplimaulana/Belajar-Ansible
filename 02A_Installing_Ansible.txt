@@ -1,0 +1,62 @@
+### INSTALLING ANSIBLE ###
+
+##preparation of installation Ansible
+1. Set the hostname.                                                        #execute on all nodes
+   To simplify the installation process, we can use the hostname instead of IP. 
+   Set the hostname in the hosts file for each node.
+   
+   hostname pod-raplimaulana-controller                                      #server01
+   hostname pod-raplimaulana-managed1                                        #server02
+   hostname pod-raplimaulana-managed2                                        #server03
+
+2. Map host on /etc/hosts.                                                   #execute on all nodes   
+   nano /etc/hosts
+
+   10.10.10.10 pod-raplimaulana-controller
+   10.10.10.20 pod-raplimaulana-managed1
+   10.10.10.30 pod-raplimaulana-managed2
+
+3. Create SSH keygen.                                                        #execute on all nodes
+   Because Ansible uses ssh to access other nodes, therefore we need to set the ssh key from the deployer (controller in our case) and distribute the ssh public key to the other nodes. 
+   This way the controller will be able to access other nodes without using a password.  
+
+   ssh-keygen -t rsa                               
+
+4. Copy controller public key from regular user to all nodes.                #execute on all nodes
+   ssh-copy-id -i ~/.ssh/id_rsa.pub student@pod-raplimaulana-controller
+   ssh-copy-id -i ~/.ssh/id_rsa.pub student@pod-raplimaulana-managed1
+   ssh-copy-id -i ~/.ssh/id_rsa.pub student@pod-raplimaulana-managed2
+
+
+
+##installing Ansible                                                         #execute on control node
+1. Install the required package.
+   sudo apt update
+   sudo apt install -y software-properties-common
+
+2. Configure the PPA on pod-username-controller and install ansible.
+   sudo add-apt-repository --yes --update ppa:ansible/ansible
+   sudo apt install ansible=6.4.0-1ppa~jammy
+   ansible –version
+
+3. Setup default configuration ansible.
+   sudo mkdir -p /etc/ansible
+   sudo vi /etc/ansible/hosts                                                 #mendaftarkan managed node di Inventory
+
+   pod-username-managed1
+
+   [webservers]
+   pod-username-managed2
+
+4. Show all hosts from inventory.
+   ansible all --list-hosts
+
+5. Show ungrouped hosts from inventory.
+   ansible ungrouped --list-hosts
+
+6. Show hosts in group webservers.
+   ansible webservers --list-hosts
+
+7. Check ping to all node.
+   ansible all -m ping
+

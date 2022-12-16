@@ -1,0 +1,19 @@
+### ADHOC COMMAND ###
+ansible [pattern] -m [module] -a "[module options]"
+
+##show hostname all node
+ansible all -m command -a "hostname"
+
+##show facts from managed1
+ansible pod-raplima-managed1 -m setup
+
+##check information localhost
+ansible localhost -m command -a 'id'
+ansible localhost -u student -m command -a 'id'
+
+##update content to file /etc/motd
+ansible pod-raplima-managed1 --become -u student -m copy -a "content='Executed by Ansible\n' dest=/etc/motd"
+ansible pod-raplima-managed1 -u student -m command -a 'cat /etc/motd'
+
+
+

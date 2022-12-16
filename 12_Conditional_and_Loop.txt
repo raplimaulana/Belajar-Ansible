@@ -1,0 +1,140 @@
+### CONDITIONAL AND LOOP ###
+
+##create ansible configuration
+cd conditional-loop
+vi ansible.cfg
+
+[defaults]
+inventory = ./inventory
+
+##create inventory
+vim inventory
+
+[database_servers]
+pod-raplima-managed2
+
+##create playbook
+vim database_setup.yml
+
+- name: Database Setup play
+  hosts: database_servers
+  become: true
+  vars: 
+    min_ram_size_bytes: 2000000000
+    supported_distros: 
+      - ubuntu
+  tasks: 
+    - name: Setup Database tasks on supported hosts w/ Min. RAM
+      include_tasks: "{{ansible_distribution}}_database_task.yml"
+      when: 
+        - ansible_distribution in supported_distros
+        - ansible_memtotal_mb*1024*1024 >= min_ram_size_bytes
+
+    - name: Print a message for unsupported Distros
+      debug:
+        msg: >
+          {{inventory_hostname}} is a {{ansible_distribution}}-based host,
+          which is not one of the supported distributions {{supported_distros}}
+      when: ansible_distribution not in supported_distros
+
+    - name: Print a message for systems with insufficient RAM
+      debug: 
+        msg: >
+          {{inventory_hostname}} does not meet the minimun RAM requirements of {{min_ram_size_bytes}} bytes.
+      when: ansible_memtotal_mb*1024*1024 < min_ram_size_bytes
+
+##create ubuntu database tasks
+vim Ubuntu_database_tasks.yml
+
+- name: Set the 'db_service' fact
+  set_fact:
+    db_service: mariadb
+
+- name: Ensure database packages are installed
+  apt: 
+    - name: 
+      - mariadb-server
+      - python3-phpmysql
+  state: present
+
+- name: Ensure the database service is started
+  services: 
+    name: "{{db_service}}"
+    state: started
+    enabled: true
+
+- name: Create Database Users
+  include_tasks: database_user_tasks.yml
+
+##create database user tasks
+vim database_user_tasks.yml
+
+- name: Ensure database permission groups exist
+  group: 
+    name: "{{item}}"
+    state: present
+  loop: "{{host_permission_groups}}"
+
+- name: Ensure Database Users exist 
+  user:
+    name: "{{item.username}}"
+    groups: "{{item.role}}"
+    append: yes
+    state: present
+  loop: "{{user_list}}"
+  when: item.role in host_permission_groups
+
+- name: MySQL user
+  mysql_user:
+    login_user: root
+    login_unix_socket: /var/run/mysqld/mysqld.sock 
+    name: {{item.username}}
+    password: {{item.password}}
+    priv: '*.*:{{item.access}}'
+    state: present
+  loop: "{{user_list}}"
+  when: item.role in host_permission_groups
+
+##create group vars
+
+#create group_vars database_servers.yml
+mkdir group_vars
+vim group_vars/database_servers.yml
+
+host_permission_groups:
+  - dbadmin
+  - dbuser
+
+#create group_vars all.yml
+vim group_vars/all.yml
+
+user_list:
+  - name: Toko Hidayat Admin
+    username: raplima
+    password: adinusa88
+    access: ALL
+    role: dbadmin
+ 
+  - name: Toko Hidayat User
+    username: maulana
+    password: adinusa88
+    access: SELECT
+    role: dbuser
+
+##running playbook
+ansible-playbook --syntax-check database_setup.yml
+ansible-playbook database_setup.yml
+
+*verify
+ ssh pod-raplima-managed2 "sudo mysql -u root -e 'SELECT user FROM user;' mysql"
+
+
+
+
+
+
+
+
+
+
+

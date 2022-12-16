@@ -1,0 +1,46 @@
+### WRITING AND RUNNING PLAYBOOKS ###
+
+##create ansible configuration
+mkdir -p playbook-basic/files
+cd playbook-basic
+echo "This is a test page." > files/index.html
+vi ansible.cfg 
+
+[defaults]
+inventory = ./inventory
+remote_user = studnet
+
+##create inventory
+vi inventory
+
+[web]
+pod-raplima-managed1
+
+##create playbook
+vim site.yml
+
+- name: Install and start Apache2
+  hosts: web
+  become: true
+  tasks: 
+    - name: apache package is present
+      apt: 
+        update_cache: yes
+        force_apt_get: yes
+        name: apache2
+        state: present
+    - name: correct index.html is present
+      copy:
+        src: files/index.html
+        dest: /var/www/html/index.html
+    - name: Apache2 is started
+      service: 
+        name: apache2
+        state: started
+        enabled: true
+
+##run playbook
+ansible-playbook site.yml
+
+*verify:
+ curl pod-raplima-managed1

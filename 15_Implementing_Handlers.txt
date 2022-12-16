@@ -1,0 +1,261 @@
+### IMPLEMENTING HANDLER ###
+Handlers are tasks that respond to a notification triggered by other tasks. Tasks only notify their handlers when the task changes something on a managed host. 
+Each handler is triggered by its name after the play's block of tasks. If no task notifies the handler by name, then the handler will not run. 
+If one or more tasks notify the handler, the handler will run exactly once after all other tasks in the play have completed. 
+Normally, handlers are used to reboot hosts and restart services.
+
+##ansible handlers
+#playbook contains a single play with a handler. 
+tasks: 
+  - name: Copy the file
+    template:
+      src: index.html.j2
+      dest: /var/www/html/index.html
+    notify:
+      - restart webserver
+
+handlers:
+  - name: restart webserver
+    service:
+      name: apache2
+      state: restarted
+
+#instruct one or more handlers to execute using the notify keyword
+tasks:
+  - name: Example task
+    copy: 
+      content: "Example task"
+      dest: /var/www/html/index.html
+    notify:
+      - restart service 1
+      - restart service 2
+
+handlers:
+  - name: restart service 1
+    service:
+      name: apache2
+      state: restarted
+
+  - name: restart service 2
+    service: 
+      name: mariadb
+      state: restarted
+
+#naming handlers
+Handlers can utilize the listen keyword. 
+Using this handler keyword, handlers can listen on topics that can group multiple handlers.
+
+tasks: 
+  - name: Restart all services web server
+    command: echo "This task will restart all services web server"
+    notify: "restart web server"
+
+handlers:
+  - name: restart apache2
+    service:
+      name: apache2
+      state: restarted
+    listen: "restart web server"
+
+  - name: restart mariadb
+    service:
+      name: mariadb
+      state: restarted
+    listen: "restart web server"
+
+#control when handlers run
+Force handlers to run before all the tasks in a particular play have been completed. 
+If you need handlers to run before the end of the play, add a task to flush them using the meta module.
+
+tasks:
+  - name: First Task
+    command: echo "First Task"
+    notify: restart mariadb
+
+  - name: task that force handlers to run imediately
+    meta: flush_handlers
+
+  - name: Second Task
+    command: echo "Second Task"
+    notify: restart apache2
+
+  - name: Third Task
+    command: echo "Thir Task"
+
+handlers:
+  - name: restart apache2
+    service:
+      name: apache2
+      state: restarted
+
+  - name: restart mariadb
+    service: 
+      name: mariadb
+      state: restarted
+
+*From the playbook above, the handlers restart mariadb will run before the second task, while the handlers restart apache2 will run after all the tasks are finished running 
+
+
+
+
+### EXAMPLE IMPLEMENTING HANDLER ###
+
+##create a file ansible.cfg 
+cd managing-handlers
+vim ansible.cfg
+
+[defaults]
+inventory = ./inventory
+remote_user = student
+
+[privilege_escalation]
+become = True
+become_ask_pass = flush_handlers
+
+##create inventory
+vim inventory
+
+[managed]
+pod-raplima-managed1
+
+##create the installing_mariaDB.yml playbook file
+1. Define destination hosts and vars to use.
+
+   vim installing_mariaDB.yml
+
+   ---
+   - name: Install mariaDB server
+     hosts: managed
+       vars:
+         required_pkgs:
+           - mariadb-server
+           - python3-phpmysql
+         db_user: rapli
+         db_pw: adinusa
+         db_socket: /var/run/mysqld/mysqld.sock
+
+2. Define a task that install the required database packages. 
+   If the task changes the system, the database was not installed, and notify the restart service mariadb.
+
+   tasks: 
+     - name: "{{required_pkgs}} packages are installed"
+       apt: 
+         name: "{required_pkgs}" 
+         state: present
+       notify: restart service mariadb
+
+3. Define a task that force handlers to run immediately.
+     - name: task that force handlers to run immediatelly
+       meta: flush_handlers
+
+4. Define a task that ensure the user and password of MariaDB. 
+   Add notify the restart service mariadb.
+
+     - name: set mariaDB user and password
+       mysql_user: 
+         login_unix_socket: "{{db_socket}}"
+         login_host: localhost
+         login_user: root
+         login_password: ''
+         name: "{{db_user}}"
+         password: "{{db_pw}}"
+         priv: "*.*:ALL,GRANT"
+         state: present
+         host: localhost
+       no_log: yes
+       notify: restart service mariadb
+
+5. Define a task that will copy the dump.sql for the database of MariaDB. 
+   Also, add some notify that will create a database and restart the mariadb service. 
+   In addition, add a task that will force handlers to run.
+ 
+     - name: add a data for database
+       copy:
+         src: ./dump.sql
+         dest: /tmp/dump.sql
+       notify:
+         - "create database" 
+         - restart service mariadb
+     
+     - name: task that force handlers to run immediately
+       meta: flush_handlers
+
+6. Define some tasks to check the databases.
+   
+     - name: check if DB is exists
+       shell: mysql --host=localhost --user={{db_user}} --password={{db_pw}} -e 'SHOW DATABASES';'
+       register: dbstatus
+     
+     - name: show list existed database
+       debug:
+         var: dbstatus.stdout_lines
+
+7. Lastly, define some handlers that will be used.
+   
+   handlers:
+     - name: restart service mariadb
+       service:
+         name: mariadb
+         state: restarted
+         enabled: yes
+    
+     - name: create a new database
+       mysql_db:
+         name: testdb
+         state: present
+         login_unix_socket: "{{db_socket}}
+         login_user: "{{db_user}}"
+         login_password: "{{db_pw}}
+       listen: "create database"
+    
+     - name: insert a data into database
+       mysql_db:
+         name: testdb
+         state: import
+         target: /tmp/dump.sql
+         login_unix_socket: "{{db_socket}}"
+         login_user: "{{db_user}}"
+         login_password: "{{db_pw}}"
+      listen: "create database"
+
+##verify that its syntax is correct by running ansible- playbook with the --syntax-check option
+ansible-playbook --syntax-check installing_mariaDB.yml
+
+##create the dump.sql
+vim dump.sql
+
+CREATE TABLE IF NOT EXISTS test (
+  message varchar(255) NOT NULL
+  ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+  INSERT INTO test(message) VALUES('Adinusa - managing-handlers');
+  INSERT INTO test(message) VALUES('username');
+  INSERT INTO test(message) VALUES('Ansible is fun')
+
+##Run the installing_mariaDB.yml playbook
+ansible-playbook installing_mariaDB.yml
+
+*verify that the databases from pod-raplima-managed1
+ mysql --host=localhost  --user=(username) --password=adinusa -e 'SHOW DATABASES;'
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

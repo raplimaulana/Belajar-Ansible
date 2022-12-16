@@ -1,0 +1,29 @@
+### MANAGING ANSIBLE CONFIGURATION FILES ###
+
+##create ansible configuration
+mkdir deploy-review
+cd deploy-review
+vi ansible.cfg
+
+[defaults]
+inventory = ./inventory
+remote_user = student
+host_key_checking = False
+
+##create inventory
+vi inventory
+
+[servers]
+pod-raplima-managed1
+pod-raplima-managed2
+
+##run ansible with ad-hoc command
+ansible all -m command -a 'id'
+ansible all -m command -a "content='This server is managed by Ansible. \n' dest=/etc/motd" --become         #The contents of /etc/motd are displayed by login(1) after a successful login but just before it executes the login shell. 
+                                                                                                            The abbreviation "motd" stands for "message of the day"
+ansible all -m command -a 'cat /etc/motd'
+
+
+ 
+
+

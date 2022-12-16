@@ -1,0 +1,21 @@
+### LATIHAN SECRETS ###
+Preparation
+Before you begin, run the lab login an-aut command to login your account. Credentials for login is same with your registered credentials in this platform (ADINUSA).
+student@pod-username-controller:~$ lab login an-aut
+
+After login, run the lab start an-aut-quiz-002-2 command. This command runs the start script and pre-configures your lab environment
+student@pod-username-controller:~$ lab start an-aut-quiz-002-2
+
+Instructions
+1.	Create new directory named quiz-002-2 for working directory.
+2.	Create inventory, define pod-username-managed1 and pod-username-managed2 in a group named managed.
+3.	Create encrypted file named quiz-Secret.yml on working directory. Provide password adinusa for the secret. The content of the file is the variables username: (username) and passwd: adinusa2022.
+4.	Create a playbook named quiz-2-2_secrets.yml that uses the variables defined in the quiz-Secret.yml encrypted file.
+5.  Configure the playbook to create user defined by the username variable. Set the user's password using the password stored in the passwd variable.
+6.	Create a password file named quiz-pass. The file must contain the plain text adinusa. Change the permissions of the file. After that, run the playbook.
+
+Verification
+1.	Make sure the ansible.cfg, inventory, quiz-2-2_secrets.yml, quiz-Secret.yml, and quiz-pass exist on quiz-002-2 directory.
+2.	Make sure the encrypted file and the password file contents are correct.
+3.	Verify user (username) exist on managed host with adinusa2022 as the user's password.
+

@@ -1,0 +1,50 @@
+### ANSIBLE INVENTORY ###
+
+---------------------|--------- |------------|-------------|
+      HOSTNAME       | LOCATION |  PURPOSE   | ENVIRONMENT |
+---------------------|----------|------------|-------------|
+pod-raplima-managed1 | Bogor    | WebServers | Testing     |
+---------------------|----------|------------|-------------|
+pod-raplima-managed2 | Jakarta  | WebServers | Development |
+---------------------|----------|------------|-------------|
+
+##Create an inventory file in the working directory. Use the Server Inventory Specifications table as a guide. 
+##In addition, create a new group called Indonesia from the combined location group and add pod-username-contoller as ungrouped host.
+vim inventory
+
+pod-raplima-controller
+
+[Bogor]
+pod-raplima-managed1
+
+[Jakarta]
+pod-raplima-managed2
+
+[WebServers]
+pod-raplima-managed[1:2]
+
+[Testing]
+pod-raplima-managed1
+
+[Development]
+pod-raplima-managed2
+
+[Indonesia:children]
+Jakarta
+Bogor
+
+##check list all host
+ansible all -i inventory --list-hosts
+
+##check the list of ungrouped hosts
+ansible ungrouped -i inventory --list-hosts
+
+##check host pod-raplima-managed1 in the list of hosts in the inventory file
+ansible pod-raplima-managed1 -i inventory --list-hosts
+
+##check the list of hosts in the Development group
+ansible Development -i inventory --list-hosts
+
+
+
+

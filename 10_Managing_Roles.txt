@@ -1,0 +1,185 @@
+### MANAGING ROLES ###
+Roles let you automatically load related vars_files, tasks, handlers, and other Ansible artifacts based on a known file structure. 
+Once you group your content in roles, you can easily reuse them and share them with other users.
+
+An Ansible role has a defined directory structure with seven main standard directories. 
+You must include at least one of these directories in each role. You can omit any directories the role does not use. 
+
+vim x
+
+site.yml
+webservers.yml
+fooservers.yml
+roles/
+  common/
+  tasks/
+  handlers/
+  library/
+  files/
+  templates/
+  vars/
+  defaults/
+  meta/
+  webservers/
+  tasks/
+  defaults/
+  meta/
+    
+*tasks/main.yml       = The main list of tasks that the role executes.
+ handlers/main.yml    = Handlers, which may be used within or outside this role.
+ library/my_module.py = Modules, which may be used within this role (see Embedding modules and plugins in roles for more information).
+ defaults/main.yml    = Default variables for the role (see Using Variables for more information). 
+                        These variables have the lowest priority of any variables available, and can be easily overridden by any other variable, including inventory variables.
+ vars/main.yml        = Other variables for the role (see Using Variables for more information).
+ files/main.yml       = Files that the role deploys.
+ templates/main.yml   = Templates that the role deploys.
+ meta/main.yml        = Metadata for the role, including role dependencies.
+
+
+##create ansible configuration
+cd role-create
+vi ansible.cfg
+
+[defaults]
+inventory = ./inventory
+remote_user - student
+
+##create inventory
+vi inventory
+
+[webservers]
+pod-raplima-managed1
+pod-raplima-managed2
+
+##create roles
+mkdir roles
+cd roles
+
+ansible-galaxy init myvhost
+rm -rvf myvhost/{defaults,vars,tests}
+
+cd ..
+mkdir -p roles/myvhost/files/html-1
+mkdir -p roles/myvhost/files/html-2
+
+echo 'simple index vhost1: pod-raplima' > roles/myvhost/files/html-1/index.html
+echo 'simple index vhost2: pod-raplima' > roles/myvhost/files/html-2/index.html
+
+##create task to playbook
+vim roles/myvhost/task/main.yml
+
+- name: Ensure apache2 is installed
+  apt:
+    name: apache2
+    state: latest
+
+- name: Ensure apache2 is started and enabled
+  service: 
+    name: apache2
+    state: started
+    enabled: yes
+
+- name: vhost-1 file is installed
+  template: 
+    src: vhost-1.conf.j2
+    dest: /etc/apache2/sites-available/vhost-1.conf
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Enable vhost-1
+  command: a2ensite vhost-1.conf                                                            #displays the content of the vhost-1.conf file
+  notify:
+    - restart apache2                                                                       #didefinisikan di handler
+
+- name: vhost-2 file is installed
+  template: 
+    src: vhost2.conf.j2
+    dest: /etc/apache2/sites-available/vhost-2.conf
+
+- name: Enable vhost-2
+  command: a2ensite vhost-2.conf                                                            #displays the content of the vhost-2.conf file
+  notify:
+    - restart apache2                                                                       #didefinisikan di handler
+
+- name: HTML content is installed
+  copy: 
+    src: html-1/
+    dest: "/var/www/vhost/{{ansible_user}}-1"
+
+- name: HTML content is installed
+  copy:
+    src:html-2/
+    dest: "/var/www/vhost/{{ansible_user}}-2"
+
+##create handlers
+vim roles/myvhost/handler/main.yml
+
+- name: restart apache2
+  service:
+    name: apache2
+    state: restarted
+
+##create vhost-1 template
+vim roles/myvhost/templates/vhost-1.conf.j2
+
+<VirtualHost *:80>
+    ServerAdmin webmaster@vhost-1.{{ ansible_user }}
+    ServerName vhost-1.{{ ansible_user }}
+    ErrorLog /var/log/apache2/vhost.{{ ansible_user }}-1-error.log
+    CustomLog /var/log/apache2/vhost.{{ ansible_user }}-1-common.log common
+    DocumentRoot /var/www/vhosts/{{ ansible_user }}-1/
+
+    <Directory /var/www/vhosts/{{ ansible_user }}-1/>
+        Options +Indexes +FollowSymlinks +Includes
+        Order allow,deny
+        Allow from all
+    </Directory>
+</VirtualHost>
+
+##create vhost-2 template
+vim roles/myvhost/templates/vhost-2.conf.j2
+
+<VirtualHost *:80>
+    ServerAdmin webmaster@vhost-2.{{ ansible_user }}
+    ServerName vhost-2.{{ ansible_user }}
+    ErrorLog /var/log/apache2/vhost.{{ ansible_user }}-2-error.log
+    CustomLog /var/log/apache2/vhost.{{ ansible_user }}-2-common.log common
+    DocumentRoot /var/www/vhosts/{{ ansible_user }}-2/
+
+    <Directory /var/www/vhosts/{{ ansible_user }}-2/>
+        Options +Indexes +FollowSymlinks +Includes
+        Order allow,deny
+        Allow from all
+    </Directory>
+</VirtualHost>
+
+##create playbook
+vim use-vhost-role.yml
+
+- name: Use myvhost role playbook
+  hosts: webservers
+  become: true
+  pre_tasks:
+    - name: pre_task message
+      debug:
+        msg: "Ensure web server configuration"
+  roles: 
+    - myvhost
+  post_tasks:
+    - name: post_tasks message
+      debug:
+      msg: "Web server is configured"
+
+##running playbook
+ansible-playbook use-vhost-role.yml --syntax-check
+ansible-playbook use-vhost-role.yml
+
+*verify:
+ curl -H "Host: vhost-1.student" http://pod-username-managed1
+ curl -H "Host: vhost-2.student" http://pod-username-managed1
+ curl -H "Host: vhost-1.student" http://pod-username-managed2
+ curl -H "Host: vhost-2.student" http://pod-username-managed2
+
+
+

@@ -1,0 +1,65 @@
+### MANAGING VARIABLES ###
+
+##create ansible local configuration
+mkdir data-variables
+cd data-variables
+vim ansible.cfg
+
+[defaults]
+inventory = ./inventory
+remote_user = student
+host_key_checking = False
+
+##create inventory
+vim inventory
+
+[webserver]
+pod-raplima-managed2
+
+##create playbook
+vim playbook.yml
+
+- name: Deploy and start Apache2 service
+  hosts: webserver
+  become: true
+  vars: 
+    web_pkg: apache2
+    web_service: apache2
+    python_pkg: python3-urllib3
+  tasks:
+    - name: Required packages are installed and up to date
+      apt: 
+        update_cache: yes
+        force_apt_update: yes
+        name: 
+          - "{{web_pkg}}
+          - "{{python_pkg}}
+        state: latest
+    - name: The {{web_service}} service is started and enabled
+      service:
+        name: "{{web_service}}"
+        enabled: true
+        state: started
+    - name: Web content is in place
+      copy: 
+        content: "Example Web Content"
+        dest: /var/www/html/index.html 
+
+- name: Verify the Apache2 service
+  host: localhost
+  tasks:
+    - name: Ensure the webserver is reacheable
+      uri:
+        url: httpd://pod-raplima-managed2
+        status_code: 200
+        return_content: yes
+    - name: Print Ouput Webserver
+      debug:
+        var: Result.content
+
+##running playbook
+ansible-playbook --syntax-check playbook.yml
+ansible-playbook playbook.yml
+
+*verify:
+ curl pod-raplima-managed2

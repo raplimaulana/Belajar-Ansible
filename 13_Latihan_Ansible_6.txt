@@ -1,0 +1,35 @@
+### LATIHAN LOOP ###
+Preparation
+Before you begin, run the lab login an-aut command to login your account. Credentials for login is same with your registered credentials in this platform (ADINUSA).
+student@pod-username-controller ~$ lab login an-aut
+After login, run the lab start an-aut-quiz-002-3 command. This command runs the start script and pre-configures your lab environment.
+student@pod-username-controller ~$ lab start an-aut-quiz-002-3
+
+Instructions
+1.  Create a new folder in the user home directory. Name it quiz-002-3.
+2.	Create a new folder in the quiz-002-3 directory. Name it group_vars.
+3.	In the group_vars folder, create 2 new files with the below requirements:
+    • Create the first file named managed1-host-<username>.yml. This file needs to contain a list of user ops from user ops1 until ops50 (ops[1-50]) and list of user dev from user dev1 until dev50 (dev[1-50]). Name the variable for list of user ops with 'list_user_ops_managed1' and for user dev with 'list_user_dev_managed1'.
+    • Create the second file named managed2-host-<username>.yml. This file needs to contain a list of user ops from user ops51 until ops100 (ops[51-100]) and list of user dev from user dev51 until dev100 (dev[51-100]). Name the variable for list of user ops with 'list_user_ops_managed2' and for user dev with 'list_user_dev_managed2'.
+    • Ensure the total line of each list is 51 lines (variable name + list of users).
+4.	In the quiz-002-3 folder, create inventory file. Value of the section in this file needs to be same with the file name in the group_vars directory.
+5.	In the quiz-002-3 folder, create a file named secret.yml and store the variable pass with adinusa88 as the value. The file needs to be encrypted by using ansible-vault, and use belajaransible as the encryption password. Store the encryption password in the vault-pass file and change the permission file with 600.
+6.	In the quiz-002-3 folder, create playbook with below tasks:
+    • Create user with username dev[1-50] dan ops[1-50] in pod-username-managed1
+    • Create user with username dev[51-100] dan ops[51-100] in pod-username-managed2
+    • Each user has password "adinusa88"
+    • Name the file of playbook with quiz-2-3_loop.yml
+
+Verification
+1.	Ensure the ansible.cfg, inventory, quiz-2-3_loop.yml, secret.yml, and vault-pass exist on quiz-002-3 directory.
+2.	Ensure all files contents are correct.
+3.	Ensure the total line of each list is 51 lines (variable name + list of users).
+4.	Ensure the user can be logged in. Tips: use below command for random check.
+    #for pod-username-managed1
+    RAND_NUMBER=$(python3 -c "import random; print(random.randrange(1,50))")
+    ssh pod-username-managed1 -l [dev or ops]${RAND_NUMBER}     
+
+    #for pod-username-managed2
+    RAND_NUMBER=$(python3 -c "import random; print(random.randrange(51,100))")
+    ssh pod-username-managed2 -l [dev or ops]${RAND_NUMBER}   
+ 

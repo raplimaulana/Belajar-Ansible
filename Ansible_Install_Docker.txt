@@ -1,0 +1,116 @@
+### ANSIBLE INSTALL DOCKER ###
+1. Install depedencies. 
+   - apt-tarnsport-https
+   - ca-certificates
+   - curl
+   - gnupg-agent
+   - software-properties-common
+2. Tambahkan GPG Key.
+3. Tambahkan repository.
+4. Instal docker, docker-cli dan container.io.
+5. Start Docker service.
+
+##hosts
+vim hosts
+
+docker:                                   #membuat group dengan docker
+  hosts:                                  #menambahkan host ke dalam group docker 
+    192.168.43.100
+    192.168.43.101
+  vars:
+    ansible_user: docker
+    ansible_password: password
+
+##playbook
+vim install-docker.yml
+
+---
+- name: install docker
+  hosts: docker                               #diinstal di host yang tergabung pada group docker
+  become: true                                #jika membutuhkan perintah sudo
+  tasks: 
+    #install satu aplikasi
+    - name: Install apt transport
+      apt: 
+        name: apt-transport-https              #nama aplikasi yang akan diinstal
+        state: latest                          #jika berisi present maka akan dicek di host apakah ada atau tidak, jika ada aplikasi tersebut akan digunakan.
+                                                jika berisi latest maka akan mendownload aplikasi terbaru
+        update_cache: yes
+    
+    #install banyak aplikasi
+    - name: Install Depedencies
+      apt: 
+        name: "{{item}}"             
+        state: latest                         
+        update_cache: yes
+      loop: 
+        - apt-tarnsport-https
+        - ca-certificates
+        - curl
+        - gnupg-agent
+        - software-properties-common
+    
+    - name: Add GPG Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg 
+        state: latest
+    
+    - name: Add Docker Repository 
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal
+        state: latest
+    
+    - name: Install Docker
+      apt:
+        name: "{{item}}"
+        state: latest
+        update_cache: yes
+      loop:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+    
+    - name: Start Docker Service
+      service: 
+        name: docker
+        state: started
+        enabled: yes
+        
+  handlers:                                    #mirip task, tapi dieksekusi ketika ada peubahan di sisi host/server
+    - name: Restar Docker
+      service:
+        name: docker
+        state: restarted
+
+
+##konfigurasi managed node (satu server yang dipilih sebagai control node, contoh server dengan hostname docker-01)
+1. Disable sudo password setelah login agar setiap melakukan perintah sudo, tidak lagi memasukan password root. 
+   sudo vim /etc/sudoers
+
+   docker ALL=(ALL) NOPASSWD: ALL
+
+2. Run playbook
+   ansible-playbook install-docker.yml
+
+3. Jika ada server baru yang ditambahkan dan ingin diinstall Docker dengan spesifikasi yang sama dengan Docker yang diinstal di node lain, gunakan cara berikut.
+   Misal server dengan hostname docker-11 dan IP address 192.168.43.195.
+      •   Di docker-11 node
+          - Username dan password harus sama dengan docker-01
+          - Modify file etc/suddoers
+            sudo vim /etc/sudoers
+
+            docker ALL=(ALL) NOPASSWD: ALL
+
+      •   Di docker-01 node
+          - Tambahkan IP address ke inventory (hosts file)
+            vim hosts
+
+            docker: 
+              hosts: 
+                192.168.43.100
+                192.168.43.101
+                192.168.43.195
+              vars:
+                ansible_user: docker
+                ansible_password: password
+          - Run playbook
